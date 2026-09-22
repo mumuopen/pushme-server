@@ -1,0 +1,12 @@
+appname=pushme-server
+version=0.1.0
+display_name=PushMe Server
+desc=PushMe自建消息推送服务端（Rust版），支持TCP/WebSocket，提供可视化管理界面、在线日志查看、离线消息补发，接口完全兼容官方API。支持text、markdown、html、url通知消息，支持data、markdata、note、svg、chart、echarts数据消息，客户端目前仅支持安卓和windows。
+platform=all
+source=thirdparty
+maintainer=mumuquant
+maintainer_url=https://github.com/mumuopen/pushme-server
+distributor=mumuquant
+distributor_url=https://github.com/mumuopen
+desktop_uidir=ui
+desktop_applaunchname=pushme-server.main
