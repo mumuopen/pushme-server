@@ -1,0 +1,5 @@
+/target
+/.temp/*.log
+/.temp/background-registry-*
+/.temp/pushme-test/
+/.temp/build_errors.txt

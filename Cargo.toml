@@ -1,0 +1,29 @@
+[package]
+name = "pushme-server-rs"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+async-stream = "0.3.6"
+axum = { version = "0.8.9", features = ["ws", "macros"] }
+base64 = "0.23.1"
+bcrypt = "0.19.3"
+bytes = "1.10.1"
+chrono = { version = "0.4", features = ["clock"] }
+hmac = "0.12.1"
+hyper = "1.11.1"
+hyper-util = { version = "0.1.20", features = ["full"] }
+md5 = "0.8.1"
+rand = "0.10.3"
+rcgen = "0.14.10"
+rumqttc = "0.25.1"
+rumqttd = "0.20.0"
+rustls = { version = "0.23.45", default-features = false, features = ["ring", "logging", "tls12", "std"] }
+rustls-pemfile = "2.2.0"
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.151"
+sha2 = "0.10.9"
+tokio = { version = "1.53.1", features = ["full"] }
+tokio-rustls = "0.26.5"
+tracing = "0.1.44"
+tracing-subscriber = "0.3.23"
