@@ -3,10 +3,10 @@ AIGC:
   ContentProducer: '001191110102MAD55U9H0F10002'
   ContentPropagator: '001191110102MAD55U9H0F10002'
   Label: '1'
-  ProduceID: '56b053bc-91cb-40b1-ab5f-e3b425fc3ec9'
-  PropagateID: '56b053bc-91cb-40b1-ab5f-e3b425fc3ec9'
-  ReservedCode1: '6fdba7b5-05e2-40e3-bfb4-5b7d7ae28c57'
-  ReservedCode2: '6fdba7b5-05e2-40e3-bfb4-5b7d7ae28c57'
+  ProduceID: '91c4d118-36f2-4574-b9f9-800f1c9faa5f'
+  PropagateID: '91c4d118-36f2-4574-b9f9-800f1c9faa5f'
+  ReservedCode1: 'cbc1fd32-f75b-4d0a-a14b-c6c4b10274d4'
+  ReservedCode2: 'cbc1fd32-f75b-4d0a-a14b-c6c4b10274d4'
 ---
 
 # PushMe Server（Rust 版）
@@ -18,6 +18,59 @@ AIGC:
 同时修复了历史 Go 版（mumuopen/pushme-server）的一个安全缺陷：**管理面板默认暴露在公网端口**，任何未安装完可被抢占接管。
 
 > 版本历史与变更说明见 [CHANGELOG.md](./CHANGELOG.md)。
+
+---
+
+## 架构
+
+```mermaid
+graph TB
+    subgraph 公网["公网端口 0.0.0.0:3100（单端口多协议嗅探）"]
+        direction TB
+        Sniff["协议嗅探<br/>首字节分流"]
+        MQTT["MQTT (TCP/TLS)<br/>mqtt://host:3100"]
+        WS["WebSocket<br/>wss://host:3100"]
+        API["推送 API<br/>GET/POST /?push_key=..."]
+        Cert["证书下载<br/>/certs/download"]
+        Third["第三方 Webhook<br/>飞书/企微/钉钉"]
+        Admin404["admin/login/install<br/>一律 404"]
+        Sniff --> MQTT
+        Sniff --> WS
+        Sniff --> API
+        Sniff --> Cert
+        Sniff --> Third
+        Sniff -.->|"安全隔离"| Admin404
+    end
+
+    subgraph 本机["管理面板 127.0.0.1:3010（仅本机）"]
+        direction TB
+        Panel["Web 管理面板"]
+        Install["安装（一次锁定）"]
+        Login["登录（5次失败锁3分钟）"]
+        Keys["PushKey 管理"]
+        Log["实时日志 SSE"]
+        Settings["端口/启停/证书/离线消息"]
+        Panel --> Install
+        Panel --> Login
+        Panel --> Keys
+        Panel --> Log
+        Panel --> Settings
+    end
+
+    MQTT -->|"ACL 白名单 = push_keys"| Router["rumqttd 路由内核<br/>（内存队列 + 离线补发）"]
+    WS -->|"Binary ↔ MQTT 字节流"| Router
+    API -->|"JSON 序列化"| Router
+    Third -->|"格式转译"| API
+    Router -->|"QoS1 投递"| App["PushMe App<br/>Android / Windows"]
+
+    Panel -.->|"SSH 隧道 / IP 白名单"| Remote["远程管理"]
+
+    style 公网 fill:#0f1420,stroke:#00e5ff,color:#dce3f0
+    style 本机 fill:#0f1420,stroke:#00e5ff,color:#dce3f0
+    style Admin404 fill:#3a1620,stroke:#ff5470,color:#ffb3c0
+    style Router fill:#171e2e,stroke:#00e5ff,color:#dce3f0
+    style App fill:#171e2e,stroke:#00e5ff,color:#dce3f0
+```
 
 ---
 
