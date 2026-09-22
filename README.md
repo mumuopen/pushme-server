@@ -1,13 +1,4 @@
----
-AIGC:
-  ContentProducer: '001191110102MAD55U9H0F10002'
-  ContentPropagator: '001191110102MAD55U9H0F10002'
-  Label: '1'
-  ProduceID: '91c4d118-36f2-4574-b9f9-800f1c9faa5f'
-  PropagateID: '91c4d118-36f2-4574-b9f9-800f1c9faa5f'
-  ReservedCode1: 'cbc1fd32-f75b-4d0a-a14b-c6c4b10274d4'
-  ReservedCode2: 'cbc1fd32-f75b-4d0a-a14b-c6c4b10274d4'
----
+
 
 # PushMe Server（Rust 版）
 
