@@ -15,6 +15,12 @@ AIGC:
 
 版本格式遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/)，语义化版本见 [SemVer](https://semver.org/lang/zh-CN/)。
 
+## [0.1.1] - 2026-10-10
+
+### 修复
+
+- **push_key 语义对齐官方（关键修复）**：面板「添加新 Key」此前由服务端随机生成 `PUSHME-xxx`，用户输入只能进备注栏，导致登记的 key 与 PushMe 客户端实际 key 不一致——客户端 MQTT 订阅被 ACL 拒绝、推送消息无法送达。现对齐官方语义：**push_key 由 PushMe 客户端生成，登记时由用户填写（必填）**；temp_key 与备注可选；新增 push_key 非空/去重、temp_key 去重校验；前端表单（push_key/temp_key/备注三输入框）与 README 同步修正。
+
 ## [0.1.0] - 2026-09-22
 
 ### 首个 Rust 版本
@@ -64,4 +70,5 @@ AIGC:
 - `clean_session` 恒为 true
 - 多实例（水平扩展）不支持
 
+[0.1.1]: https://github.com/mumuopen/pushme-server/releases/tag/v0.1.1
 [0.1.0]: https://github.com/mumuopen/pushme-server/releases/tag/v0.1.0

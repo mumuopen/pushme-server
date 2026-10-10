@@ -113,8 +113,8 @@ cargo build --release
 
 1. 浏览器打开 `http://127.0.0.1:3010/`（管理面板，仅本机可访问）
 2. 完成安装（设置管理员账号密码）
-3. 「推送 Key」中添加 key，得到 `push_key` 与 `temp_key`
-4. PushMe App 配置：服务器地址 `ws://域名:3100` 或 `wss://域名:3100`（TLS 模式），push_key 填上面生成的 key
+3. 在 PushMe 客户端 App 中查看并复制你的推送Key，在面板「推送 Key」中登记该 key（push_key 必填，temp_key 别名与备注可选）
+4. PushMe App 配置：服务器地址 `ws://域名:3100` 或 `wss://域名:3100`（TLS 模式），push_key 填客户端自己的 key（即上一步登记的那个）
 5. 测试推送（公网 3100）：
 
 ```bash
@@ -166,7 +166,7 @@ GET/POST http://host:3100/
 
 ## 管理面板功能（对齐官方）
 
-- **推送 Key**：增 / 删 / 改备注，自动生成 `push_key` + `temp_key`
+- **推送 Key**：登记（push_key 必填，来自客户端 App）/ 删 / 改备注；temp_key 别名可选（对齐官方：key 由客户端生成，服务端不生成 key）
 - **消息测试**：面板内直接发测试推送
 - **端口设置**：改消息服务端口 / 面板端口（1-65535，重启后生效）
 - **服务启停**：设置消息服务 start / stop（重启后生效）
@@ -190,7 +190,7 @@ GET/POST http://host:3100/
   "panel_bind": "127.0.0.1",  // 面板绑定地址（安全默认）
   "public_panel": false,      // 公网端口是否开放管理路由（不推荐）
   "push_keys": [              // push_key 列表（字符串或 {key,temp_key,note}）
-    { "key": "PUSHME-xxx", "temp_key": "yyy", "note": "" }
+    { "key": "客户端推送Key", "temp_key": "别名可选", "note": "备注可选" }
   ],
   "user": "md5(用户名)",       // 官方 md5 格式（兼容迁移）
   "password": "md5(密码)",
@@ -252,6 +252,7 @@ src/
 - `mqtt_ws_test.py`：WebSocket MQTT
 - `offline_test.py` / `offline_off_test.py`：离线消息专项
 - `align_test.py`：与官方运维功能对齐（端口 / 启停 / 证书 / 日志 SSE / 401）
+- `panel_smoke_test.py`：push_key 登记语义（客户端 key 必填 / 去重 / temp_key 反查白名单）
 
 ---
 

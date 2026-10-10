@@ -1,6 +1,6 @@
 //! Web 管理面板（默认仅绑定 127.0.0.1:3010）：
 //! - 安装（首次设置管理员账号）/ 登录 / 退出
-//! - 推送 key 管理（增/删/备注），自动生成 key 与 temp_key
+//! - 推送 key 管理（增/删/备注）：push_key 由 PushMe 客户端生成，面板只做白名单登记（对齐官方语义，服务端不生成 key）
 //! - 消息测试发送
 //! - 修改密码、TLS 模式设置、自签名证书生成
 //! - 运行状态（消息计数/连接数/运行时长）与最近推送日志
@@ -138,10 +138,6 @@ async fn form_params(req: Request) -> std::collections::HashMap<String, String> 
         }
     }
     map
-}
-
-fn random_hex(n_bytes: usize) -> String {
-    (0..n_bytes).map(|_| format!("{:02x}", rand::random::<u8>())).collect()
 }
 
 // ------------------------- 页面 -------------------------
@@ -326,14 +322,31 @@ async fn api_keys_list(State(state): State<SharedState>, req: Request) -> Respon
     json_ok(json!({ "ok": true, "keys": arr }))
 }
 
+/// 添加推送 key（对齐官方：push_key 由 PushMe 客户端生成，服务端只登记白名单，不生成 key）
 async fn api_keys_add(State(state): State<SharedState>, req: Request) -> Response {
     if let Some(r) = require_login(&state, req.headers()) {
         return r;
     }
     let params = form_params(req).await;
+    // push_key 必填：填写 PushMe 客户端 App 中显示的推送Key
+    let key = params.get("key").map(|s| s.trim().to_string()).unwrap_or_default();
+    // temp_key 可选别名（可留空）：对外临时暴露用，服务端反查映射回真实 key
+    let temp_key = params
+        .get("temp_key")
+        .map(|s| s.trim().to_string())
+        .unwrap_or_default();
     let note = params.get("note").cloned().unwrap_or_default();
-    let key = format!("PUSHME-{}", random_hex(16));
-    let temp_key = random_hex(8);
+    if key.is_empty() {
+        return json_err("push_key 不能为空：请填写 PushMe 客户端 App 中显示的推送Key", StatusCode::BAD_REQUEST);
+    }
+    let cfg = state.store.get();
+    if cfg.key_set().contains(&key) {
+        return json_err("该 push_key 已登记，请勿重复添加", StatusCode::BAD_REQUEST);
+    }
+    if !temp_key.is_empty() && cfg.find_by_temp_key(&temp_key).is_some() {
+        return json_err("该 temp_key 已被使用", StatusCode::BAD_REQUEST);
+    }
+    drop(cfg);
     let _ = state.store.update(|c| {
         c.push_keys.push(json!({ "key": key, "temp_key": temp_key, "note": note }));
     });
@@ -766,10 +779,13 @@ const DASHBOARD_HTML: &str = r#"
 <tbody id="keys-body">{{ROWS}}</tbody>
 </table>
 <div class="row" style="margin-top:14px">
+<input id="new-key" placeholder="push_key（必填：PushMe App 中的推送Key）">
+<input id="new-temp-key" placeholder="temp_key（可选）">
 <input id="new-note" placeholder="备注（可选）">
 <button class="btn" style="margin:0" onclick="addKey()">添加新 Key</button>
 </div>
 <span id="key-result" class="tip"></span>
+<div class="tip">push_key 由 PushMe 客户端生成（非服务端生成）：登记后服务器接受该 key 的推送请求，并把消息转发到持有该 key 的客户端；temp_key 为可选别名，可对外临时暴露。</div>
 <div class="tip">推送接口：GET/POST http://服务器:端口/?push_key=KEY&amp;title=标题&amp;content=内容 （也支持 temp_key）</div>
 </div>
 
@@ -843,10 +859,17 @@ async function refreshKeys() {
   body.innerHTML = d.keys.map(k => '<tr><td class="mono">' + k.key + '</td><td class="mono">' + k.temp_key + '</td><td>' + (k.note || '') + '</td><td><button class="btn danger" onclick="delKey(\'' + k.key + '\')">删除</button></td></tr>').join('');
 }
 async function addKey() {
-  const note = document.getElementById('new-note').value;
-  const r = await post('/api/keys/add', { note });
-  if (r.ok) { tip('key-result', '新 Key：' + r.key, true); document.getElementById('new-note').value = ''; }
-  else tip('key-result', r.message || '失败', false);
+  const key = document.getElementById('new-key').value.trim();
+  const temp_key = document.getElementById('new-temp-key').value.trim();
+  const note = document.getElementById('new-note').value.trim();
+  if (!key) { tip('key-result', '请填写 push_key（PushMe App 中的推送Key）', false); return; }
+  const r = await post('/api/keys/add', { key, temp_key, note });
+  if (r.ok) {
+    tip('key-result', '已登记：' + r.key, true);
+    document.getElementById('new-key').value = '';
+    document.getElementById('new-temp-key').value = '';
+    document.getElementById('new-note').value = '';
+  } else { tip('key-result', r.message || '失败', false); }
   refreshKeys();
 }
 async function delKey(key) {

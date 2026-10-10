@@ -1833,7 +1833,7 @@ dependencies = [
 
 [[package]]
 name = "pushme-server-rs"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "async-stream",
  "axum 0.8.9",
