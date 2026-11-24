@@ -15,6 +15,13 @@ AIGC:
 
 版本格式遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/)，语义化版本见 [SemVer](https://semver.org/lang/zh-CN/)。
 
+## [0.1.3] - 2026-11-24
+
+### 变更
+
+- **MQTT keepalive 对齐官方 v3.0.1**：任意正数 keepalive 统一归一为 3600 秒（原实现仅 60/300/600 白名单），完整支持 PushMe 客户端 v6（v6.0.0 起支持 1~20 分钟自定义心跳）；`keepalive=0` 不再按 10 秒读超时处理，与官方 aedes 一致视为不设超时
+- 官方 v3.0.1 其余改动（静态文件缓存 10 天、飞牛 APP 登录提示、jj.js 升级、日志字段补全）为 Node 实现/面板专属，Rust 版不涉及
+
 ## [0.1.2] - 2026-10-10
 
 ### 修复

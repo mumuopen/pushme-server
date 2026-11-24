@@ -1,7 +1,7 @@
 //! MQTT 连接处理：自写协议前端（mqttbytes 编解码）+ rumqttd 路由内核
 //!
 //! 设计要点（对齐官方 pushme-server 的 aedes 行为）：
-//! - connect：keepalive 60/300/600 → 3600（官方 preConnect 同款调整）
+//! - connect：keepalive 任意正数 → 3600；0 = 不设读超时（官方 v3.0.1 preConnect 同款）
 //! - 订阅/发布 ACL：仅允许 push_keys 白名单内的 topic（官方 authorizeSubscribe/authorizePublish）
 //! - 非法 publish → 断开连接（官方 aedes callback error 行为）
 //! - 消息以 qos=1 投递给订阅客户端（官方 pushme.publish qos=1）
@@ -276,11 +276,9 @@ impl MqttHub {
             return Err("unsupported protocol version".into());
         }
 
-        // 官方 preConnect：keepalive 60/300/600 → 3600
-        let mut keep_alive = connect.keep_alive;
-        if matches!(keep_alive, 60 | 300 | 600) {
-            keep_alive = 3600;
-        }
+        // 官方 v3.0.1 preConnect：任意正数 keepalive 一律按 3600 管理
+        // （PushMe 客户端 v6 支持 60~1200s 自定义心跳）；0 表示不设超时
+        let keep_alive = normalize_keepalive(connect.keep_alive);
 
         let client_id = if connect.client_id.is_empty() {
             format!("anon-{:?}", std::time::SystemTime::now())
@@ -299,17 +297,18 @@ impl MqttHub {
 
         // ---- 4. 双向转发循环 ----
         // 读超时：keepalive*2 + 10s（防半开连接泄漏；官方 3600 意图下即约 2 小时）
-        let idle_timeout = Duration::from_secs(keep_alive as u64 * 2 + 10);
+        // keepalive=0 与官方 aedes 一致：不设超时
+        let idle_timeout =
+            (keep_alive > 0).then(|| Duration::from_secs(keep_alive as u64 * 2 + 10));
         let mut pkid: u16 = 0;
 
         loop {
             tokio::select! {
                 // socket → 协议包
-                r = tokio::time::timeout(idle_timeout, read_packet(&mut stream, &mut read_buf)) => {
+                r = read_packet_with_timeout(&mut stream, &mut read_buf, idle_timeout) => {
                     match r {
-                        Err(_) => return Err("read timeout (keepalive)".into()),
-                        Ok(Err(e)) => return Err(e),
-                        Ok(Ok(pkt)) => {
+                        Err(e) => return Err(e),
+                        Ok(pkt) => {
                             let next = handle_inbound(
                                 self,
                                 pkt,
@@ -461,6 +460,25 @@ where
     Ok(true)
 }
 
+/// 官方 v3.0.1 preConnect 行为：任意正数 keepalive 统一按 3600 管理；0 表示不设超时。
+fn normalize_keepalive(raw: u16) -> u16 {
+    if raw > 0 { 3600 } else { 0 }
+}
+
+/// 读取一个 MQTT 包；`idle` 为 None 时不做超时限制（官方 aedes 对 keepalive=0 的语义）。
+async fn read_packet_with_timeout<S: AsyncRead + Unpin>(
+    stream: &mut S,
+    buf: &mut BytesMut,
+    idle: Option<Duration>,
+) -> Result<Packet, String> {
+    match idle {
+        Some(t) => tokio::time::timeout(t, read_packet(stream, buf))
+            .await
+            .map_err(|_| "read timeout (keepalive)".to_string())?,
+        None => read_packet(stream, buf).await,
+    }
+}
+
 /// 从流中读出一个完整 MQTT 包（不足时继续读）
 async fn read_packet<S: AsyncRead + Unpin>(stream: &mut S, buf: &mut BytesMut) -> Result<Packet, String> {
     loop {
@@ -491,4 +509,19 @@ async fn write_packet<S: AsyncWrite + Unpin>(stream: &mut S, pkt: &Packet) -> Re
         .await
         .map_err(|e| format!("socket write: {e}"))?;
     stream.flush().await.map_err(|e| format!("flush: {e}"))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::normalize_keepalive;
+
+    #[test]
+    fn keepalive_any_positive_value_normalized_to_3600() {
+        // 客户端 v6 心跳可调 60~1200s；官方服务端（v3.0.1）一律归一为 3600
+        for raw in [1u16, 60, 90, 120, 300, 600, 900, 1200, 65535] {
+            assert_eq!(normalize_keepalive(raw), 3600, "raw={raw}");
+        }
+        // 0 = 客户端不要求心跳，保持 0（不设读超时，对齐官方 aedes）
+        assert_eq!(normalize_keepalive(0), 0);
+    }
 }
