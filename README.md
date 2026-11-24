@@ -224,7 +224,7 @@ GET/POST http://host:3100/
 ## 技术实现
 
 - **协议嗅探**：单端口按首字节分流 MQTT（0x10）/ HTTP / 未知
-- **MQTT**：自写协议前端（mqttbytes 编解码）+ rumqttd 路由内核；keepalive 60/300/600 → 3600（对齐官方）；订阅/发布 ACL 白名单；非法发布断开；QoS1 投递；离线消息可选开关；连接断开自动清理订阅计数
+- **MQTT**：自写协议前端（mqttbytes 编解码）+ rumqttd 路由内核；keepalive 任意正数 → 3600、0 不设读超时（对齐官方 v3.0.1，支持客户端 v6 自定义心跳）；订阅/发布 ACL 白名单；非法发布断开；QoS1 投递；离线消息可选开关；连接断开自动清理订阅计数
 - **WebSocket**：任意路径升级（子协议 mqtt），Binary 帧 ↔ MQTT 字节流
 - **管理面板**：无外部依赖单页 HTML；HMAC session；登录限速；IP 白名单；SSE 实时日志
 - **TLS**：rustls + rcgen 自签名（多域名 SAN）
@@ -253,6 +253,7 @@ src/
 - `offline_test.py` / `offline_off_test.py`：离线消息专项
 - `align_test.py`：与官方运维功能对齐（端口 / 启停 / 证书 / 日志 SSE / 401）
 - `panel_smoke_test.py`：push_key 登记语义（客户端 key 必填 / 去重 / temp_key 反查白名单）
+- `keepalive_smoke.py`：keepalive 归一（120s→3600）与 keepalive=0 不超时（客户端 v6 自定义心跳）
 
 ---
 
